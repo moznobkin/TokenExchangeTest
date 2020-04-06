@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -13,8 +15,10 @@ import (
 )
 
 var publicKeyData, fileReadError = ioutil.ReadFile("keys/id_rsa.pem")
+var pemBlock, _ = pem.Decode(publicKeyData)
+var publicKey, _ = x509.ParsePKCS1PublicKey(pemBlock.Bytes)
 
-var publicKey, _ = jwt.ParseRSAPublicKeyFromPEM([]byte(publicKeyData))
+// var publicKey, _ = jwt.ParseRSAPublicKeyFromPEM([]byte(publicKeyData))
 
 var privateKeyData, _ = ioutil.ReadFile("keys/id_rsa")
 var privateKey, _ = jwt.ParseRSAPrivateKeyFromPEM(privateKeyData)
@@ -27,6 +31,7 @@ func main() {
 	router.Handle("/method1", jwtMiddleware(method1Handler)).Methods("GET")
 	router.Handle("/method2", NotImplemented).Methods("GET")
 
+	fmt.Print(publicKey.E)
 	router.Handle("/sampletoken", GetTokenHandler).Methods("GET")
 	if fileReadError != nil {
 		fmt.Errorf("Error reading public key from file", fileReadError)
@@ -92,12 +97,8 @@ func jwtMiddleware(next http.Handler) http.Handler {
 var signingKey = []byte("secret")
 
 var keyfunc = func(*jwt.Token) (interface{}, error) {
-	return &privateKey.PublicKey, nil
+	return publicKey, nil
 }
-
-// var Extractor = func(r *http.Request) (interface{}, error) {
-// 	return r.Header.Get("ACCESS-TOKEN")
-// }
 
 //GetTokenHandler - sample token
 var GetTokenHandler = http.HandlerFunc(func(w http.ResponseWriter,
